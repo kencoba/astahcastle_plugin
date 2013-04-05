@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+   <extension point="com.change_vision.astah.ui.actionSets">
+      <actionSet
+            label="%action_set_label"
+            visible="true"
+            id="coba.ken.astahcastle.astahcastle.actionSet">
+         <menu
+               id="astahcastle"
+               label="%menu_group"
+               path="tool/astahcastle">
+         </menu>
+         <action
+			   label="%menu_label"
+               icon="icons/sample.gif"
+               class="coba.ken.astahcastle.TemplateAction"
+               tooltip="%menu_tooltip"
+               menubarPath="tool/astahcastle/"
+               id="astahcastle">
+         </action>
+     </actionSet>
+   </extension>
+</plugin>
