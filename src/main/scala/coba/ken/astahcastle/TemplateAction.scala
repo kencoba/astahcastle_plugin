@@ -18,6 +18,14 @@ import com.change_vision.jude.api.inf.editor.ModelEditorFactory
 import com.change_vision.jude.api.inf.editor.BasicModelEditor
 import com.change_vision.jude.api.inf.model._
 
+/**
+ *
+ * astah* plugin for Import Visual Studio XML Document.
+ *
+ * Before run this plugin, close property window on astah. 
+ *
+ * @author Kenichi Kobayashi
+ */
 
 class TemplateAction extends IPluginActionDelegate {
   @throws(classOf[IPluginActionDelegate.UnExpectedException])
@@ -61,7 +69,7 @@ class TemplateAction extends IPluginActionDelegate {
     val members = xml \ "members" \ "member"
     members foreach { member =>
       val name = (member \ "@name").toString
-      val definition = member.child.mkString.split("\n").map(_.trim).mkString("\n")
+      val definition = member.child.mkString.split("\n").filter(!_.isEmpty).map(_.trim).mkString("\n")
 
       setDefinition(prjAcc, name, definition)
     }
@@ -72,7 +80,7 @@ class TemplateAction extends IPluginActionDelegate {
       case "T" => classOf[IClass]
       case "M" => classOf[IOperation]
       case "F" => classOf[IAttribute]
-      case "P" => classOf[IOperation]
+      case "P" => classOf[IAttribute]
       case _ => sys.error("Unknown typeKey = " + typeKey)
     }
   }
@@ -111,10 +119,17 @@ class TemplateAction extends IPluginActionDelegate {
 
     // if target is operation, we need additional matching by parameter names.
     def parameterList(elem:INamedElement):String = {
+      def getQualifiedTypeExpression(p:IParameter): String = {
+        p.getQualifiedTypeExpression match {
+          case "int" => "System.Int32"
+          case s     => s.split("::").mkString(".")
+        }
+      }
+
       elem match {
         case op:IOperation => {
           val params = op.getParameters
-          val fullQualifiedParams = params.map(_.getQualifiedTypeExpression)
+          val fullQualifiedParams = params.map(getQualifiedTypeExpression(_))
           if (!fullQualifiedParams.isEmpty) fullQualifiedParams.reduce(_ ++ "," ++ _) else ""
         }
       }
@@ -124,7 +139,11 @@ class TemplateAction extends IPluginActionDelegate {
       foundElements.filter( elem =>
         elem match {
           case e: IOperation => {
-            val foundFullNameWithParams = e.getFullName(".") + "(" + parameterList(e) + ")"
+            val parameterString = parameterList(e) match {
+              case "" => ""
+              case s  => "(" + s + ")"
+            }
+            val foundFullNameWithParams = e.getFullName(".") + parameterString
             if (foundFullNameWithParams == fullNameWithParams) true else false
           }
           case _ => true
