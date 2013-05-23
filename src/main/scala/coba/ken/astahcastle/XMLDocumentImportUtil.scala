@@ -27,13 +27,31 @@ import com.change_vision.jude.api.inf.model._
  * @author Kenichi Kobayashi
  */
 object XMLDocumentImportUtil {
+  import scala.xml.NodeSeq
+  import scala.xml.Node
+
+  import org.slf4j.LoggerFactory
+  private val logger = LoggerFactory.getLogger(classOf[TemplateAction])
+
+  def getMembers(xml:Elem):NodeSeq = {
+    xml \ "members" \ "member"
+  }
+
+  def getName(member:Node):String = {
+    (member \ "@name").toString
+  }
+
+  def getDefinition(member:Node) = {
+     member.child.mkString.split("\n").filter(!_.isEmpty).map(_.trim).mkString("\n")
+  }
+
   def importComment(xmlFile:File, prjAcc:ProjectAccessor) = {
     val xml = XML.loadFile(xmlFile)
 
-    val members = xml \ "members" \ "member"
+    val members = getMembers(xml)
     members foreach { member =>
-      val name = (member \ "@name").toString
-      val definition = member.child.mkString.split("\n").filter(!_.isEmpty).map(_.trim).mkString("\n")
+      val name = getName(member)
+      val definition = getDefinition(member)
 
       setDefinition(prjAcc, name, definition)
     }
@@ -46,6 +64,44 @@ object XMLDocumentImportUtil {
       case "F" => classOf[IAttribute]
       case "P" => classOf[IAttribute]
       case _ => sys.error("Unknown typeKey = " + typeKey)
+    }
+  }
+
+  def getQualifiedTypeExpression(p:IParameter): String = {
+    val exp = p.getQualifiedTypeExpression
+    convertTypeExpression(exp)
+  }
+
+  def convertTypeExpression(exp:String): String = {
+    val (name, arrayType) = exp.span(_ != '[')
+    val typeName = name match {
+      case "sbyte"  => "System.SByte"
+      case "byte"   => "System.Byte"
+      case "char"   => "System.Char"
+      case "short"  => "System.Int16"
+      case "ushort" => "System.UInt16"
+      case "int"    => "System.Int32"
+      case "uint"   => "System.UInt32"
+      case "long"   => "System.Int64"
+      case "ulong"  => "System.UInt64"
+      case "float"  => "System.Single"
+      case "double" => "System.Double"
+      case "string" => "System.String"
+      case "bool"   => "System.Boolean"
+      case s        => s.split("::").mkString(".")
+    }
+    typeName ++ arrayType
+  }
+
+  // if target is operation, we need additional matching by parameter names.
+  // TODO check parameter of array.
+  def parameterList(elem:INamedElement):String = {
+    elem match {
+      case op:IOperation => {
+        val params = op.getParameters
+        val fullQualifiedParams:Array[String] = params.map(getQualifiedTypeExpression(_))
+        if (!fullQualifiedParams.isEmpty) fullQualifiedParams.reduce(_ ++ "," ++ _) else ""
+      }
     }
   }
 
@@ -81,37 +137,6 @@ object XMLDocumentImportUtil {
     // find same name elements.
     val foundElements = prjAcc.findElements(targetType, targetName).filter(_.getFullName(".") == fullName)
 
-    // if target is operation, we need additional matching by parameter names.
-    // TODO check parameter of array.
-    def parameterList(elem:INamedElement):String = {
-      def getQualifiedTypeExpression(p:IParameter): String = {
-        p.getQualifiedTypeExpression match {
-          case "sbyte"  => "System.SByte"
-          case "byte"   => "System.Byte"
-          case "char"   => "System.Char"
-          case "short"  => "System.Int16"
-          case "ushort" => "System.UInt16"
-          case "int"    => "System.Int32"
-          case "uint"   => "System.UInt32"
-          case "long"   => "System.Int64"
-          case "ulong"  => "System.UInt64"
-          case "float"  => "System.Single"
-          case "double" => "System.Double"
-          case "string" => "System.String"
-          case "bool"   => "System.Boolean"
-          case s        => s.split("::").mkString(".")
-        }
-      }
-
-      elem match {
-        case op:IOperation => {
-          val params = op.getParameters
-          val fullQualifiedParams = params.map(getQualifiedTypeExpression(_))
-          if (!fullQualifiedParams.isEmpty) fullQualifiedParams.reduce(_ ++ "," ++ _) else ""
-        }
-      }
-    }
-
     val matched = {
       foundElements.filter( elem =>
         elem match {
@@ -127,6 +152,19 @@ object XMLDocumentImportUtil {
         })
     }
 
-    matched.map(_.setDefinition(definition))
+    matched.map{ elem =>
+      logger.info("\n<converted>" +
+                  "  \n<name>\n<![CDATA[" +
+                    elem.getFullName(".") +
+                  "  ]]>\n</name>\n" +
+                  "  <original-definition>\n<![CDATA[" + 
+                    elem.getDefinition +
+                  "  ]]>\n</original-definition>\n" + 
+                  "  <new-definition>\n<![CDATA[" + 
+                    definition +
+                  "  ]]>\n</new-definition>" +
+                  "\n</converted>")
+      elem.setDefinition(definition)
+    }
   }
 }

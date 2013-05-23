@@ -7,6 +7,7 @@
 		<plugin.install>true</plugin.install>
 		<astah.version>6.7</astah.version>
 		<astah.edition>all</astah.edition>
+        <scala-version>2.10.1</scala-version>
 	</properties>
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>coba.ken.astahcastle</groupId>
@@ -100,14 +101,14 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>2.4.2</version>
 				<configuration>
-					<systemPropertyVariables>
+                  <skipTests>true</skipTests>
+<!--					<systemPropertyVariables>
 						<file.encoding>utf-8</file.encoding>
 					</systemPropertyVariables>
-					<excludes>
-						<exclude>**/TestUtils.java</exclude>
-						<exclude>learning/**/*.java</exclude>
-					</excludes>
-					<argLine>-Dfile.encoding=UTF-8 -Xmx1024m -Xms128m</argLine>
+                    <includes>
+                      <include>**/*Test.java</include>
+                    </includes>
+					<argLine>-Dfile.encoding=UTF-8 -Xmx1024m -Xms128m</argLine> -->
 				</configuration>
 			</plugin>
 
@@ -151,6 +152,20 @@
 			</testResource>
 		</testResources>
 		<plugins>
+            <plugin>
+              <groupId>org.scalatest</groupId>
+              <artifactId>scalatest-maven-plugin</artifactId>
+              <version>1.0-M2</version>
+              <executions>
+                <execution>
+                  <goals>
+                    <goal>test</goal>
+                  </goals>
+                </execution>
+              </executions>
+            </plugin>
+
+
           <plugin>
             <groupId>org.scala-tools</groupId>
             <artifactId>maven-scala-plugin</artifactId>
@@ -159,9 +174,13 @@
               <execution>
                 <goals>
                   <goal>compile</goal>
+                  <goal>testCompile</goal>
                 </goals>
               </execution>
             </executions>
+            <configuration>
+              <scalaVersion>${scala.version}</scalaVersion>
+            </configuration>
           </plugin>
           <plugin>
             <artifactId>maven-assembly-plugin</artifactId>
@@ -311,7 +330,28 @@
         <dependency>
           <groupId>org.scala-lang</groupId>
           <artifactId>scala-library</artifactId>
-          <version>2.10.1</version>
+          <version>${scala-version}</version>
         </dependency>
-	</dependencies>
+        <dependency>
+          <groupId>org.scalatest</groupId>
+          <artifactId>scalatest_2.10</artifactId>
+          <version>1.9.1</version>
+          <scope>test</scope>
+        </dependency>
+<!--        <dependency>
+          <groupId>com.typesafe</groupId>
+          <artifactId>scalalogging-slf4j</artifactId>
+          <version>1.0.1</version>
+        </dependency> -->
+        <dependency>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-api</artifactId>
+          <version>1.7.2</version>
+        </dependency>
+        <dependency>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-classic</artifactId>
+          <version>1.0.7</version>
+        </dependency>
+    </dependencies>
 </project>
