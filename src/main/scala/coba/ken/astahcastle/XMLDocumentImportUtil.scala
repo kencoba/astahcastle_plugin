@@ -170,11 +170,6 @@ object XMLDocumentImportUtil {
       foundElements.filter( elem =>
         elem match {
           case e: IOperation => {
-//            val parameterString = parameterList(e) match {
-//              case "" => ""
-//              case s  => "(" + s + ")"
-//            }
-//            val foundFullNameWithParams = e.getFullName(".") + parameterString
             val foundFullNameWithParams = getFullName(elem)
             logger.info("\n[" + foundFullNameWithParams + "]<=model\n[" + fullNameWithParams + "]<=xml")
             foundFullNameWithParams == fullNameWithParams
