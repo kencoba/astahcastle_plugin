@@ -4,6 +4,7 @@ import scala.xml.XML
 import scala.xml.Elem
 
 import java.io.File
+import java.io.PrintWriter
 
 import javax.swing.JOptionPane
 import javax.swing.JFileChooser
@@ -32,6 +33,7 @@ object XMLDocumentImportUtil {
 
   import org.slf4j.LoggerFactory
   private val logger = LoggerFactory.getLogger(classOf[TemplateAction])
+  private val logFilename = "_astarcastle_log.xml"
 
   def getMembers(xml:Elem):NodeSeq = {
     xml \ "members" \ "member"
@@ -46,6 +48,10 @@ object XMLDocumentImportUtil {
   }
 
   def importComment(xmlFile:File, prjAcc:ProjectAccessor) = {
+    val log = new PrintWriter(prjAcc.getProjectPath + logFilename)
+    log.println("<?xml version=\"1.0\" encoding=\"Shift_JIS\"?>")
+    log.println("<results>")
+
     val xml = XML.loadFile(xmlFile)
 
     val members = getMembers(xml)
@@ -53,8 +59,30 @@ object XMLDocumentImportUtil {
       val name = getName(member)
       val definition = getDefinition(member)
 
-      setDefinition(prjAcc, name, definition)
+      val result = setDefinition(prjAcc, name, definition)
+
+      result match {
+        case result if (result.isEmpty) => log.println("<result>" +
+                                                       "<xml-name><![CDATA[" + name + "]]></xml-name>" + 
+                                                       "<model-name></model-name>" +
+                                                       "<updated value=\"false\"/>" +
+                                                       "<original-definition></original-definition>" +
+                                                       "<new-definition><![CDATA[" + definition + "]]></new-definition>" +
+                                                       "</result>")
+        case _ => {
+          result.foreach(r => log.println("<result>" +
+                                          "<xml-name><![CDATA[" + name + "]]></xml-name>" +
+                                          "<model-name><![CDATA[" + r._1 + "]]></model-name>" +
+                                          "<updated value=\"true\"/>" +
+                                          "<original-definition><![CDATA[" + r._2 + "]]></original-definition>" +
+                                          "<new-definition><![CDATA[" + r._3 + "]]></new-definition>" +
+                                          "</result>"))
+        }
+      }
     }
+
+    log.println("</results>")
+    log.close()
   }
 
   def getTargetType(typeKey:String) = {
@@ -75,6 +103,7 @@ object XMLDocumentImportUtil {
   def convertTypeExpression(exp:String): String = {
     val (name, arrayType) = exp.span(_ != '[')
     val typeName = name match {
+      case "object" => "System.Object"
       case "sbyte"  => "System.SByte"
       case "byte"   => "System.Byte"
       case "char"   => "System.Char"
@@ -122,7 +151,7 @@ object XMLDocumentImportUtil {
    * @param definition body of member tag in XML file.
    *
    */
-  def setDefinition(prjAcc:ProjectAccessor, name:String, definition:String):Unit = {
+  def setDefinition(prjAcc:ProjectAccessor, name:String, definition:String):List[(String,String,String)] = {
 
     val typeAndFullName = name.split(":")
     val typeKey = typeAndFullName(0)
@@ -141,30 +170,33 @@ object XMLDocumentImportUtil {
       foundElements.filter( elem =>
         elem match {
           case e: IOperation => {
-            val parameterString = parameterList(e) match {
-              case "" => ""
-              case s  => "(" + s + ")"
-            }
-            val foundFullNameWithParams = e.getFullName(".") + parameterString
-            if (foundFullNameWithParams == fullNameWithParams) true else false
+//            val parameterString = parameterList(e) match {
+//              case "" => ""
+//              case s  => "(" + s + ")"
+//            }
+//            val foundFullNameWithParams = e.getFullName(".") + parameterString
+            val foundFullNameWithParams = getFullName(elem)
+            logger.info("\n[" + foundFullNameWithParams + "]<=model\n[" + fullNameWithParams + "]<=xml")
+            foundFullNameWithParams == fullNameWithParams
           }
           case _ => true
         })
     }
 
-    matched.map{ elem =>
-      logger.info("\n<converted>" +
-                  "  \n<name>\n<![CDATA[" +
-                    elem.getFullName(".") +
-                  "  ]]>\n</name>\n" +
-                  "  <original-definition>\n<![CDATA[" + 
-                    elem.getDefinition +
-                  "  ]]>\n</original-definition>\n" + 
-                  "  <new-definition>\n<![CDATA[" + 
-                    definition +
-                  "  ]]>\n</new-definition>" +
-                  "\n</converted>")
-      elem.setDefinition(definition)
+    matched.map{ elem => elem.setDefinition(definition)}
+    matched.map{ elem => (getFullName(elem),elem.getDefinition,definition)}.toList
+  }
+
+  def getFullName(elem:INamedElement):String = {
+    elem match {
+      case e: IOperation => {
+        val parameterString = parameterList(e) match {
+          case "" => ""
+          case s  => "(" + s + ")"
+        }
+        e.getFullName(".") + parameterString
+      }
+      case _ => elem.getFullName(".")
     }
   }
 }

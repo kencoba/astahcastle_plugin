@@ -47,7 +47,7 @@ class TemplateAction extends IPluginActionDelegate {
       }
       case e:Exception => {
         JOptionPane.showMessageDialog(window.getParent,
-                                      "Unexpected error has occurred.",
+                                      "Unexpected error has occurred.:" + e.getMessage,
                                       "Alert",
                                       JOptionPane.ERROR_MESSAGE)
         throw new IPluginActionDelegate.UnExpectedException
