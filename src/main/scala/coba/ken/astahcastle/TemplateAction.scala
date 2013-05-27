@@ -11,6 +11,8 @@ import com.change_vision.jude.api.inf.project.ProjectAccessor
 import com.change_vision.jude.api.inf.ui.IPluginActionDelegate
 import com.change_vision.jude.api.inf.ui.IWindow
 
+import org.slf4j.LoggerFactory
+
 /**
  *
  * astah* plugin for Import Visual Studio XML Document.
@@ -21,6 +23,8 @@ import com.change_vision.jude.api.inf.ui.IWindow
  */
 
 class TemplateAction extends IPluginActionDelegate {
+  private val logger = LoggerFactory.getLogger(classOf[TemplateAction])
+
   @throws(classOf[IPluginActionDelegate.UnExpectedException])
   override def run(window:IWindow):java.lang.Object = {
     try {

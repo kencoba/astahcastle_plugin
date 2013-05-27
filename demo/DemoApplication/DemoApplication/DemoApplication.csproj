@@ -48,6 +48,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Business\BusinessFacade.cs" />
+    <Compile Include="Business\Customer.cs" />
     <Compile Include="Business\Order.cs" />
     <Compile Include="Business\OrderManager.cs" />
     <Compile Include="DataAccess\OrderDAO.cs" />

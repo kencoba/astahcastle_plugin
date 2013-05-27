@@ -5,8 +5,8 @@ namespace Application.Business
 	/**
 	 * ///<summary>
 	 * ///ビジネス層の窓口
-     * /// コメントを修正した。「クラスのコメントが修正された」ことがログに出力されることを確認する。
 	 * ///</summary>
+	 * 
 	 */
 	public class BusinessFacade
 	{
@@ -15,12 +15,18 @@ namespace Application.Business
 		 * ///注文検索
 		 * ///</summary>
 		 */
-		public IList<Order> findOrder(int orderNo)
+		public IList<Order> findOrder()
 		{
-            // 引数を変更したメソッド。
-            // 「このメソッドのモデルへの反映に失敗した」ことがログに出力されることを確認する。
 			return null;
 		}
+
+        /// <summary>
+        /// モデルには存在しないメソッド
+        /// </summary>
+        /// <param name="orders"></param>
+        public void addOrder(IList<Order> orders)
+        {
+        }
 
 	}
 

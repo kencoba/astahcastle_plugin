@@ -35,13 +35,9 @@ object XMLDocumentImportUtil {
   private val logger = LoggerFactory.getLogger(classOf[TemplateAction])
   private val logFilename = "_astarcastle_log.xml"
 
-  def getMembers(xml:Elem):NodeSeq = {
-    xml \ "members" \ "member"
-  }
+  def getMembers(xml:Elem):NodeSeq = xml \ "members" \ "member"
 
-  def getName(member:Node):String = {
-    (member \ "@name").toString
-  }
+  def getName(member:Node):String = (member \ "@name").toString
 
   def getDefinition(member:Node) = {
      member.child.mkString.split("\n").filter(!_.isEmpty).map(_.trim).mkString("\n")
@@ -61,23 +57,30 @@ object XMLDocumentImportUtil {
 
       val result = setDefinition(prjAcc, name, definition)
 
+      def logUnmatched(name:String,definition:String): Unit = {
+        log.println("<result>" +
+                    "<xml-name><![CDATA[" + name + "]]></xml-name>" + 
+                    "<model-name></model-name>" +
+                    "<updated value=\"false\"/>" +
+                    "<original-definition></original-definition>" +
+                    "<new-definition><![CDATA[" + definition + "]]></new-definition>" +
+                    "</result>")
+      }
+
+      def logMatched(name:String,res:List[(String,String,String)]):Unit = {
+          res.foreach(r =>
+            log.println("<result>" +
+                        "<xml-name><![CDATA[" + name + "]]></xml-name>" +
+                        "<model-name><![CDATA[" + r._1 + "]]></model-name>" +
+                        "<updated value=\"true\"/>" +
+                        "<original-definition><![CDATA[" + r._2 + "]]></original-definition>" +
+                        "<new-definition><![CDATA[" + r._3 + "]]></new-definition>" +
+                        "</result>"))
+      }
+
       result match {
-        case result if (result.isEmpty) => log.println("<result>" +
-                                                       "<xml-name><![CDATA[" + name + "]]></xml-name>" + 
-                                                       "<model-name></model-name>" +
-                                                       "<updated value=\"false\"/>" +
-                                                       "<original-definition></original-definition>" +
-                                                       "<new-definition><![CDATA[" + definition + "]]></new-definition>" +
-                                                       "</result>")
-        case _ => {
-          result.foreach(r => log.println("<result>" +
-                                          "<xml-name><![CDATA[" + name + "]]></xml-name>" +
-                                          "<model-name><![CDATA[" + r._1 + "]]></model-name>" +
-                                          "<updated value=\"true\"/>" +
-                                          "<original-definition><![CDATA[" + r._2 + "]]></original-definition>" +
-                                          "<new-definition><![CDATA[" + r._3 + "]]></new-definition>" +
-                                          "</result>"))
-        }
+        case result if (result.isEmpty) => logUnmatched(name,definition)
+        case _ => logMatched(name,result)
       }
     }
 
@@ -95,44 +98,6 @@ object XMLDocumentImportUtil {
     }
   }
 
-  def getQualifiedTypeExpression(p:IParameter): String = {
-    val exp = p.getQualifiedTypeExpression
-    convertTypeExpression(exp)
-  }
-
-  def convertTypeExpression(exp:String): String = {
-    val (name, arrayType) = exp.span(_ != '[')
-    val typeName = name match {
-      case "object" => "System.Object"
-      case "sbyte"  => "System.SByte"
-      case "byte"   => "System.Byte"
-      case "char"   => "System.Char"
-      case "short"  => "System.Int16"
-      case "ushort" => "System.UInt16"
-      case "int"    => "System.Int32"
-      case "uint"   => "System.UInt32"
-      case "long"   => "System.Int64"
-      case "ulong"  => "System.UInt64"
-      case "float"  => "System.Single"
-      case "double" => "System.Double"
-      case "string" => "System.String"
-      case "bool"   => "System.Boolean"
-      case s        => s.split("::").mkString(".")
-    }
-    typeName ++ arrayType
-  }
-
-  // if target is operation, we need additional matching by parameter names.
-  // TODO check parameter of array.
-  def parameterList(elem:INamedElement):String = {
-    elem match {
-      case op:IOperation => {
-        val params = op.getParameters
-        val fullQualifiedParams:Array[String] = params.map(getQualifiedTypeExpression(_))
-        if (!fullQualifiedParams.isEmpty) fullQualifiedParams.reduce(_ ++ "," ++ _) else ""
-      }
-    }
-  }
 
   /**
    * set definition in Astah model.
@@ -178,20 +143,81 @@ object XMLDocumentImportUtil {
         })
     }
 
-    matched.map{ elem => elem.setDefinition(definition)}
-    matched.map{ elem => (getFullName(elem),elem.getDefinition,definition)}.toList
+    (for (e <- matched) yield {
+      val original = e.getDefinition
+      e.setDefinition(definition)
+      (getFullName(e),original,definition)
+    }).toList
   }
 
   def getFullName(elem:INamedElement):String = {
     elem match {
-      case e: IOperation => {
-        val parameterString = parameterList(e) match {
-          case "" => ""
-          case s  => "(" + s + ")"
-        }
-        e.getFullName(".") + parameterString
-      }
+      case e: IOperation => {e.getFullName(".") + getParameterString(e)}
       case _ => elem.getFullName(".")
     }
   }
+
+  def getParameterString(e:IOperation):String = {
+    logger.info(expandParameter(e.getParameters))
+    expandParameter(e.getParameters) match {
+      case "" => ""
+      case s  => "(" + s + ")"
+    }
+  }
+
+  def expandParameter(params:Array[IParameter]):String = {
+    val fullQualifiedParams:Array[String] = params.map(getQualifiedTypeExpression(_))
+    if (!fullQualifiedParams.isEmpty) fullQualifiedParams.reduce(_ ++ "," ++ _) else ""
+  }
+
+  def getQualifiedTypeExpression(p:IParameter): String = {
+    import scala.collection.JavaConverters._
+
+    val ns = p.getType.getFullNamespace(".")
+    val exp = ns match {
+      case "" => p.getTypeExpression
+      case _ => ns + "." + p.getTypeExpression
+    }
+    val nameAndTypeparams = exp.split("<")
+
+    if (nameAndTypeparams.size == 2) {
+      val templateBindings:Array[ITemplateBinding] = p.getType.getTemplateBindings
+      val actualMap = templateBindings(0).getQualifiedActualMap.asScala
+      val typeParams = (
+        for ((key,value) <- actualMap)
+        yield {
+          logger.info(value.toString.replace("::","."))
+          value.toString.replace("::",".")
+        }
+      ).mkString(",")
+
+      aliasToFullName(nameAndTypeparams(0)) + "{" + typeParams + "}"
+    } else {
+      aliasToFullName(nameAndTypeparams(0))
+    }
+  }
+
+  def aliasToFullName(exp:String): String = {
+    val (name, arrayType) = exp.span(_ != '[')
+    val typeName = name match {
+      case "object" => "System.Object"
+      case "sbyte"  => "System.SByte"
+      case "byte"   => "System.Byte"
+      case "char"   => "System.Char"
+      case "short"  => "System.Int16"
+      case "ushort" => "System.UInt16"
+      case "int"    => "System.Int32"
+      case "uint"   => "System.UInt32"
+      case "long"   => "System.Int64"
+      case "ulong"  => "System.UInt64"
+      case "float"  => "System.Single"
+      case "double" => "System.Double"
+      case "string" => "System.String"
+      case "bool"   => "System.Boolean"
+      case s        => s.split("::").mkString(".")
+    }
+    typeName ++ arrayType
+  }
+
 }
+

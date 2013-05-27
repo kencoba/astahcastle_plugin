@@ -1,4 +1,5 @@
 using Application.DataAccess;
+using System.Collections.Generic;
 
 namespace Application.DataAccess
 {
@@ -6,6 +7,7 @@ namespace Application.DataAccess
 	 * ///<summary>
 	 * ///íçï∂åüçıDAOé¿ëï
 	 * ///</summary>
+	 * 
 	 */
 	public class OrderDAOImpl : OrderDAO
 	{
@@ -13,10 +15,16 @@ namespace Application.DataAccess
 		 * ///<summary>
 		 * ///íçï∂åüçı
 		 * ///</summary>
+		 * 
 		 */
-		public IList<string[]> findOrder()
+		public IList_string[]_ findOrder()
 		{
 			return null;
+		}
+
+		public void addOrder(string[] data)
+		{
+
 		}
 
 	}

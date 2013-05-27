@@ -8,6 +8,7 @@ namespace Application.UI
 	 * /// ’•¶‰æ–Ê
 	 * ///</summary>
 	 * 
+	 * 
 	 */
 	public class OrderPage
 	{
@@ -16,9 +17,9 @@ namespace Application.UI
 		 * ///’•¶‚ğs‚¤
 		 * ///</summary>
 		 */
-		public int order(IList<Order> newOrders)
+		public void order(IList<Order> newOrders)
 		{
-			return 0;
+
 		}
 
 	}
