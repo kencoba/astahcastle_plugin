@@ -26,7 +26,7 @@ namespace Application.DataAccess
 
         /// <summary>
         /// 元のモデルにはコメントがなかった。
-        /// このコメントの反映が失敗することを確認する。
+        /// このコメントの反映が成功することを確認する。
         /// </summary>
         /// <param name="data"></param>
 		public void addOrder(string[] data)

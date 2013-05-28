@@ -152,50 +152,60 @@ object XMLDocumentImportUtil {
 
   def getFullName(elem:INamedElement):String = {
     elem match {
-      case e: IOperation => {e.getFullName(".") + getParameterString(e)}
+      case e: IOperation => getOperationString(e) //{e.getFullName(".") + getParameterString(e)}
       case _ => elem.getFullName(".")
     }
   }
 
-  def getParameterString(e:IOperation):String = {
-    logger.info(expandParameter(e.getParameters))
-    expandParameter(e.getParameters) match {
-      case "" => ""
-      case s  => "(" + s + ")"
+  def getOperationString(e:IOperation):String = {
+    logger.info(getParametersString(e.getParameters))
+    getParametersString(e.getParameters) match {
+      case "" => e.getFullName(".")
+      case s  => e.getFullName(".") + "(" + s + ")"
     }
   }
 
-  def expandParameter(params:Array[IParameter]):String = {
-    val fullQualifiedParams:Array[String] = params.map(getQualifiedTypeExpression(_))
-    if (!fullQualifiedParams.isEmpty) fullQualifiedParams.reduce(_ ++ "," ++ _) else ""
+  def getParametersString(params:Array[IParameter]):String = {
+    val qualifiedParams:Array[String] = params.map(qualifiedParameterExp(_))
+    if (!qualifiedParams.isEmpty) qualifiedParams.reduce(_ ++ "," ++ _) else ""
   }
 
-  def getQualifiedTypeExpression(p:IParameter): String = {
-    import scala.collection.JavaConverters._
-
-    val ns = p.getType.getFullNamespace(".")
-    val exp = ns match {
-      case "" => p.getTypeExpression
-      case _ => ns + "." + p.getTypeExpression
-    }
-    val nameAndTypeparams = exp.split("<")
-
-    if (nameAndTypeparams.size == 2) {
-      val templateBindings:Array[ITemplateBinding] = p.getType.getTemplateBindings
-      val actualMap = templateBindings(0).getQualifiedActualMap.asScala
-      val typeParams = (
-        for ((key,value) <- actualMap)
-        yield {
-          logger.info(value.toString.replace("::","."))
-          value.toString.replace("::",".")
-        }
-      ).mkString(",")
-
-      aliasToFullName(nameAndTypeparams(0)) + "{" + typeParams + "}"
+  def qualifiedParameterExp(p:IParameter): String = {
+    if (hasGeneric(typeExp(p))) {
+      typeExpWithGeneric(p)
     } else {
-      aliasToFullName(nameAndTypeparams(0))
+      typeExpWithNoGeneric(p)
     }
   }
+
+  def hasGeneric(s:String) = s.contains("<")
+
+  def typeExp(p:IParameter):String = {
+    val namespace = p.getType.getFullNamespace(".")
+    namespace match {
+      case "" => p.getTypeExpression // possibly simple type
+      case _ => namespace + "." + p.getTypeExpression
+    }
+  }
+
+  def genericTypeName(p:IParameter):String = typeExp(p).split("<")(0)
+
+  def typeExpWithGeneric(p:IParameter):String = {
+    import scala.collection.JavaConverters._
+    val templateBindings = p.getType.getTemplateBindings
+    val actualMap = templateBindings(0).getQualifiedActualMap.asScala
+    val typeParams = (
+      for ((key,value) <- actualMap)
+      yield {
+        logger.info(value.toString.replace("::","."))
+        value.toString.replace("::",".")
+      }
+    ).mkString(",")
+
+    aliasToFullName(genericTypeName(p)) + "{" + typeParams + "}"
+  }
+
+  def typeExpWithNoGeneric(p:IParameter):String = aliasToFullName(genericTypeName(p))
 
   def aliasToFullName(exp:String): String = {
     val (name, arrayType) = exp.span(_ != '[')
